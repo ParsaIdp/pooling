@@ -1,71 +1,70 @@
-\documentclass[10pt,twocolumn]{article}
+%%
+%% This is file `main.tex' - ACM Conference Proceedings Format
+%%
 
-% Page layout
-\usepackage[margin=0.75in]{geometry}
+\documentclass[sigconf,nonacm]{acmart}
 
-% Essential packages
+%% Rights management - for class project
+\setcopyright{none}
+\copyrightyear{2025}
+
+%% Remove ACM reference format for class submission
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+%% Packages
 \usepackage{booktabs}
-\usepackage{graphicx}
-\usepackage{amsmath}
-\usepackage{amssymb}
 \usepackage{multirow}
 \usepackage{xcolor}
 \usepackage{colortbl}
-\usepackage{hyperref}
-\usepackage{enumitem}
-\usepackage{caption}
-\usepackage{subcaption}
 
-% Typography
-\usepackage{times}
-\usepackage{microtype}
-
-% Section formatting
-\usepackage{titlesec}
-\titleformat{\section}{\normalfont\large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
-\titlespacing*{\section}{0pt}{2.5ex plus 1ex minus .2ex}{1.5ex plus .2ex}
-\titlespacing*{\subsection}{0pt}{2ex plus 1ex minus .2ex}{1ex plus .2ex}
-
-% Compact lists
-\setlist{noitemsep,topsep=2pt}
-
-% Colors for tables
+%% Colors for tables
 \definecolor{lightgreen}{rgb}{0.9, 1.0, 0.9}
-\definecolor{lightblue}{rgb}{0.9, 0.95, 1.0}
 
-\pagestyle{plain}
-
-% ============================================================================
+%%
+%% Document begins
+%%
 \begin{document}
 
-\title{\textbf{Adaptive Pooling Innovations for Efficient Deep Learning}\\[0.3em]
-\large A Comprehensive Study of Learnable Downsampling Strategies}
+%%
+%% Title
+%%
+\title{Adaptive Pooling Innovations for Efficient Deep Learning}
+\subtitle{A Comprehensive Study of Learnable Downsampling Strategies}
 
-\author{
-\textbf{Parsa Idehpour}\\[0.2em]
-University of Pennsylvania\\[0.2em]
-\texttt{ididea@seas.upenn.edu}
+%%
+%% Author
+%%
+\author{Parsa Idehpour}
+\email{ididea@seas.upenn.edu}
+\affiliation{%
+  \institution{University of Pennsylvania}
+  \city{Philadelphia}
+  \state{PA}
+  \country{USA}
 }
 
-\date{ESE-5390 Machine Learning Systems \quad---\quad Fall 2025}
-
-\maketitle
-
-% ============================================================================
-% ABSTRACT
-% ============================================================================
+%%
+%% Abstract
+%%
 \begin{abstract}
-\noindent
 Pooling layers are fundamental components in Convolutional Neural Networks (CNNs), responsible for spatial downsampling and translation invariance. Despite decades of research, the choice between Max Pooling and Average Pooling remains largely heuristic, with each method discarding potentially valuable information. This paper presents a comprehensive investigation of \textbf{eight adaptive pooling mechanisms} designed to overcome these limitations through learnable, differentiable downsampling. We introduce two novel methods: \textbf{Attention-Weighted Pooling}, which uses lightweight self-attention to weight spatial locations adaptively, and \textbf{Stochastic Mix Pooling}, which employs randomized blending during training for improved regularization. Through extensive experiments on CIFAR-100 and Tiny ImageNet using VGG16 and ResNet18 architectures, we demonstrate that adaptive pooling consistently outperforms static baselines on pooling-heavy architectures. Our best method achieves \textbf{+1.41\%} accuracy improvement on CIFAR-100 and \textbf{+2.03\%} on Tiny ImageNet with VGG16.
 \end{abstract}
 
-\smallskip
-\noindent\textbf{Keywords:} Deep Learning, Pooling Layers, CNN, Adaptive Computation, Computer Vision
+%%
+%% Keywords
+%%
+\keywords{Deep Learning, Pooling Layers, CNN, Adaptive Computation, Computer Vision}
 
-% ============================================================================
-% INTRODUCTION
-% ============================================================================
+%%
+%% Make title
+%%
+\maketitle
+
+%% ============================================================================
+%% INTRODUCTION
+%% ============================================================================
 \section{Introduction}
 
 \subsection{Background and Motivation}
@@ -99,26 +98,26 @@ Our contributions are:
     \item A \textbf{fully reproducible artifact} with automated scripts.
 \end{enumerate}
 
-% ============================================================================
-% RELATED WORK
-% ============================================================================
+%% ============================================================================
+%% RELATED WORK
+%% ============================================================================
 \section{Related Work}
 
 \textbf{Classical Pooling.} Max Pooling, introduced alongside early CNNs~\cite{lecun1998gradient}, selects the maximum activation within each window. Global Average Pooling~\cite{lin2013network} replaces fully connected layers by averaging entire feature maps, reducing parameters and overfitting.
 
 \textbf{Learned Pooling.} Several works have explored learnable pooling strategies. Stochastic approaches sample activations probabilistically based on magnitudes. Mixed pooling methods learn blend ratios between max and average. Our work extends these ideas with attention-based and regularization-based approaches.
 
-% ============================================================================
-% METHODOLOGY
-% ============================================================================
+%% ============================================================================
+%% METHODOLOGY
+%% ============================================================================
 \section{Methodology}
 
 We developed eight pooling mechanisms, each targeting specific hypotheses about optimal feature preservation. Figure~\ref{fig:methods} provides a visual overview.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/method_diagram.png}
-    \caption{Overview of the 8 pooling methods. Each panel shows: method name, category (Baseline/Learnable/Novel), a 2$\times$2 input example with output, the core formula, and key properties. Our novel contributions (Attention-Weighted and Stochastic Mix) are highlighted in pink.}
+    \includegraphics[width=\columnwidth]{figures/method_diagram.png}
+    \caption{Overview of the 8 pooling methods investigated. The two rightmost methods (Attention-Weighted and Stochastic Mix) are our novel contributions.}
     \label{fig:methods}
 \end{figure}
 
@@ -173,9 +172,9 @@ Y = \frac{\text{AvgPool}(X \odot A)}{\text{AvgPool}(A) + \epsilon}
 Y = \lambda \cdot \text{Max}(X) + (1-\lambda) \cdot \text{Avg}(X)
 \end{equation}
 
-% ============================================================================
-% EXPERIMENTAL SETUP
-% ============================================================================
+%% ============================================================================
+%% EXPERIMENTAL SETUP
+%% ============================================================================
 \section{Experimental Setup}
 
 \subsection{Datasets}
@@ -196,9 +195,9 @@ Y = \lambda \cdot \text{Max}(X) + (1-\lambda) \cdot \text{Avg}(X)
 
 SGD with momentum 0.9, weight decay $5{\times}10^{-4}$, cosine LR schedule from 0.1, 200 epochs, batch size 128, standard augmentation, mixed precision (AMP), 3 runs per configuration. All experiments on NVIDIA H100 GPUs.
 
-% ============================================================================
-% EVALUATION
-% ============================================================================
+%% ============================================================================
+%% EVALUATION
+%% ============================================================================
 \section{Evaluation}
 
 \subsection{Main Results}
@@ -207,7 +206,7 @@ Figure~\ref{fig:main} and Table~\ref{tab:main} present our primary findings on V
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/main_comparison.png}
+    \includegraphics[width=\columnwidth]{figures/main_comparison.png}
     \caption{VGG16 performance across all 8 pooling methods on CIFAR-100 and Tiny ImageNet. Stochastic Mix achieves the best results on both datasets.}
     \label{fig:main}
 \end{figure}
@@ -248,7 +247,7 @@ Figure~\ref{fig:arch} contrasts VGG16 and ResNet18 sensitivity.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/architecture_comparison.png}
+    \includegraphics[width=\columnwidth]{figures/architecture_comparison.png}
     \caption{Architecture sensitivity to pooling. VGG16 benefits significantly from adaptive pooling; ResNet18 shows neutral response due to skip connections.}
     \label{fig:arch}
 \end{figure}
@@ -261,7 +260,7 @@ Figure~\ref{fig:ablation} shows the T-Max-Avg hyperparameter sensitivity.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.9\linewidth]{figures/ablation_heatmap.png}
+    \includegraphics[width=0.9\columnwidth]{figures/ablation_heatmap.png}
     \caption{Ablation study heatmap for K (top-K) and T (threshold) parameters. Best configuration: K=4, T=0.3.}
     \label{fig:ablation}
 \end{figure}
@@ -274,7 +273,7 @@ Figure~\ref{fig:curves} shows training progression.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=\linewidth]{figures/learning_curves.png}
+    \includegraphics[width=\columnwidth]{figures/learning_curves.png}
     \caption{Learning curves for VGG16 on CIFAR-100. Adaptive methods achieve higher final accuracy while maintaining stable training.}
     \label{fig:curves}
 \end{figure}
@@ -287,16 +286,16 @@ Figure~\ref{fig:overhead} analyzes efficiency.
 
 \begin{figure}[t]
 \centering
-    \includegraphics[width=\linewidth]{figures/overhead.png}
+    \includegraphics[width=\columnwidth]{figures/overhead.png}
     \caption{Computational overhead. All methods add $<$8\% training time. Stochastic Mix is particularly efficient with minimal extra parameters.}
     \label{fig:overhead}
 \end{figure}
 
 All methods add negligible overhead ($<$8\% time). Stochastic Mix adds only 5 parameters per layer with 1\% overhead---excellent efficiency for +1.41\% gain.
 
-% ============================================================================
-% DISCUSSION
-% ============================================================================
+%% ============================================================================
+%% DISCUSSION
+%% ============================================================================
 \section{Discussion}
 
 \subsection{Why Architecture Matters}
@@ -314,9 +313,9 @@ VGG16, with 5 pooling layers in a feed-forward topology, shows significant sensi
 
 We evaluated only image classification; other tasks may show different patterns. Modern architectures (EfficientNet, ConvNeXt) deserve investigation.
 
-% ============================================================================
-% CONCLUSION
-% ============================================================================
+%% ============================================================================
+%% CONCLUSION
+%% ============================================================================
 \section{Conclusion}
 
 This project demonstrates that adaptive pooling can meaningfully improve CNN performance on pooling-heavy architectures. Our key findings:
@@ -329,9 +328,9 @@ This project demonstrates that adaptive pooling can meaningfully improve CNN per
 
 We recommend \textbf{Stochastic Mix Pooling} as a drop-in replacement for Max Pooling in pooling-heavy architectures.
 
-% ============================================================================
-% REPRODUCIBILITY
-% ============================================================================
+%% ============================================================================
+%% REPRODUCIBILITY
+%% ============================================================================
 \section*{Reproducibility Statement}
 
 We provide a complete reproducibility package:
@@ -342,10 +341,12 @@ We provide a complete reproducibility package:
     \item \texttt{requirements.txt}: Pinned dependencies
 \end{itemize}
 
-% ============================================================================
-% REFERENCES
-% ============================================================================
-\bibliographystyle{plain}
+Code available at: \url{https://github.com/ParsaIdp/pooling}
+
+%% ============================================================================
+%% REFERENCES
+%% ============================================================================
+\bibliographystyle{ACM-Reference-Format}
 \bibliography{references}
 
 \end{document}
