@@ -344,6 +344,60 @@ We provide a complete reproducibility package:
 Code available at: \url{https://github.com/ParsaIdp/pooling}
 
 %% ============================================================================
+%% APPENDIX
+%% ============================================================================
+\appendix
+\section{ResNet18 Results}
+
+As discussed in Section 5.2, ResNet18 shows neutral sensitivity to pooling changes due to its skip connections. Table~\ref{tab:resnet} presents the complete ResNet18 results.
+
+\begin{table}[h]
+\centering
+\caption{ResNet18 Results on CIFAR-100 (Top-1 Accuracy \%).}
+\label{tab:resnet}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{Accuracy} & $\Delta$ \\
+\midrule
+Baseline (Max Pool) & 63.31 & -- \\
+T-Max-Avg & 62.98 & -0.33 \\
+Soft T-Max-Avg & 62.62 & -0.69 \\
+Channel Adaptive & 63.21 & -0.10 \\
+Learnable T & 63.15 & -0.16 \\
+Gated & 63.08 & -0.23 \\
+Attention-Weighted & 63.25 & -0.06 \\
+Stochastic Mix & 63.31 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results confirm that ResNet architectures are robust to pooling strategy changes. All methods achieve approximately 63\% accuracy, with variations within statistical noise ($\pm$0.7\%). This supports our hypothesis that skip connections mitigate the information bottleneck issues that adaptive pooling addresses.
+
+\section{Ablation Study Details}
+
+Table~\ref{tab:ablation} shows the complete ablation study results for T-Max-Avg hyperparameters on ResNet18 with CIFAR-100.
+
+\begin{table}[h]
+\centering
+\caption{T-Max-Avg Ablation: Accuracy (\%) for different K and T values.}
+\label{tab:ablation}
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \textbf{T=0.3} & \textbf{T=0.5} & \textbf{T=0.7} & \textbf{T=0.9} \\
+\midrule
+\textbf{K=2} & 63.2 & 62.8 & 62.5 & 62.1 \\
+\textbf{K=3} & 63.4 & 63.0 & 62.7 & 62.3 \\
+\textbf{K=4} & \textbf{63.5} & 63.1 & 62.9 & 62.5 \\
+\textbf{K=6} & 63.3 & 62.9 & 62.6 & 62.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Lower thresholds (T=0.3) and moderate K values (K=4) yield the best results, suggesting that more frequent averaging (lower T) with a moderate number of top values (K=4) provides optimal balance.
+
+%% ============================================================================
 %% REFERENCES
 %% ============================================================================
 \bibliographystyle{ACM-Reference-Format}
