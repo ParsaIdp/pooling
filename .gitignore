@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Data files (too large for git)
+data/
+*.tar.gz
+*.zip
+
+# Results and logs (reproduce locally)
+results/
+logs/
+*.pt
+*.pth
+*.ckpt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# LaTeX auxiliary files
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Plots (regenerate with generate_plots.py)
+plots/

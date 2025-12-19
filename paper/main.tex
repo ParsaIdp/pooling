@@ -1,0 +1,351 @@
+\documentclass[10pt,twocolumn]{article}
+
+% Page layout
+\usepackage[margin=0.75in]{geometry}
+
+% Essential packages
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Typography
+\usepackage{times}
+\usepackage{microtype}
+
+% Section formatting
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\section}{0pt}{2.5ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{2ex plus 1ex minus .2ex}{1ex plus .2ex}
+
+% Compact lists
+\setlist{noitemsep,topsep=2pt}
+
+% Colors for tables
+\definecolor{lightgreen}{rgb}{0.9, 1.0, 0.9}
+\definecolor{lightblue}{rgb}{0.9, 0.95, 1.0}
+
+\pagestyle{plain}
+
+% ============================================================================
+\begin{document}
+
+\title{\textbf{Adaptive Pooling Innovations for Efficient Deep Learning}\\[0.3em]
+\large A Comprehensive Study of Learnable Downsampling Strategies}
+
+\author{
+\textbf{Parsa Idehpour}\\[0.2em]
+University of Pennsylvania\\[0.2em]
+\texttt{ididea@seas.upenn.edu}
+}
+
+\date{ESE-5390 Machine Learning Systems \quad---\quad Fall 2025}
+
+\maketitle
+
+% ============================================================================
+% ABSTRACT
+% ============================================================================
+\begin{abstract}
+\noindent
+Pooling layers are fundamental components in Convolutional Neural Networks (CNNs), responsible for spatial downsampling and translation invariance. Despite decades of research, the choice between Max Pooling and Average Pooling remains largely heuristic, with each method discarding potentially valuable information. This paper presents a comprehensive investigation of \textbf{eight adaptive pooling mechanisms} designed to overcome these limitations through learnable, differentiable downsampling. We introduce two novel methods: \textbf{Attention-Weighted Pooling}, which uses lightweight self-attention to weight spatial locations adaptively, and \textbf{Stochastic Mix Pooling}, which employs randomized blending during training for improved regularization. Through extensive experiments on CIFAR-100 and Tiny ImageNet using VGG16 and ResNet18 architectures, we demonstrate that adaptive pooling consistently outperforms static baselines on pooling-heavy architectures. Our best method achieves \textbf{+1.41\%} accuracy improvement on CIFAR-100 and \textbf{+2.03\%} on Tiny ImageNet with VGG16.
+\end{abstract}
+
+\smallskip
+\noindent\textbf{Keywords:} Deep Learning, Pooling Layers, CNN, Adaptive Computation, Computer Vision
+
+% ============================================================================
+% INTRODUCTION
+% ============================================================================
+\section{Introduction}
+
+\subsection{Background and Motivation}
+
+Convolutional Neural Networks (CNNs) have revolutionized computer vision, achieving state-of-the-art performance on tasks from image classification to object detection~\cite{krizhevsky2012imagenet,he2016deep}. A typical CNN alternates between convolutional layers, which extract local features, and pooling layers, which perform spatial downsampling.
+
+While convolutional operations have evolved significantly---from standard convolutions to dilated, depthwise separable, and deformable variants---pooling layers have remained largely unchanged. The two dominant strategies offer a binary choice:
+
+\begin{itemize}
+    \item \textbf{Max Pooling:} Captures salient features but discards texture information and blocks gradient flow to non-maximal elements.
+    \item \textbf{Average Pooling:} Preserves spatial statistics but dilutes strong activations, potentially losing discriminative features.
+\end{itemize}
+
+Neither strategy is universally optimal. This rigidity motivates our investigation of \emph{adaptive pooling}---methods that learn optimal downsampling behavior during training.
+
+\subsection{Research Questions}
+
+\begin{enumerate}
+    \item Can learnable pooling mechanisms outperform static baselines?
+    \item Which architectural characteristics determine sensitivity to pooling strategy?
+    \item What is the computational overhead relative to performance gains?
+\end{enumerate}
+
+\subsection{Contributions}
+
+Our contributions are:
+\begin{enumerate}
+    \item Implementation and evaluation of \textbf{8 pooling mechanisms}, including 6 from literature and 2 novel methods.
+    \item Introduction of \textbf{Attention-Weighted Pooling} and \textbf{Stochastic Mix Pooling} as new adaptive strategies.
+    \item Comprehensive experiments across 2 datasets, 2 architectures, and 8 methods (32 configurations total).
+    \item A \textbf{fully reproducible artifact} with automated scripts.
+\end{enumerate}
+
+% ============================================================================
+% RELATED WORK
+% ============================================================================
+\section{Related Work}
+
+\textbf{Classical Pooling.} Max Pooling, introduced alongside early CNNs~\cite{lecun1998gradient}, selects the maximum activation within each window. Global Average Pooling~\cite{lin2013network} replaces fully connected layers by averaging entire feature maps, reducing parameters and overfitting.
+
+\textbf{Learned Pooling.} Several works have explored learnable pooling strategies. Stochastic approaches sample activations probabilistically based on magnitudes. Mixed pooling methods learn blend ratios between max and average. Our work extends these ideas with attention-based and regularization-based approaches.
+
+% ============================================================================
+% METHODOLOGY
+% ============================================================================
+\section{Methodology}
+
+We developed eight pooling mechanisms, each targeting specific hypotheses about optimal feature preservation. Figure~\ref{fig:methods} provides a visual overview.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/method_diagram.png}
+    \caption{Overview of the 8 pooling methods. Each panel shows: method name, category (Baseline/Learnable/Novel), a 2$\times$2 input example with output, the core formula, and key properties. Our novel contributions (Attention-Weighted and Stochastic Mix) are highlighted in pink.}
+    \label{fig:methods}
+\end{figure}
+
+\subsection{Baseline Methods}
+
+\textbf{Max Pooling} selects the maximum activation:
+\begin{equation}
+Y = \max_{(i,j) \in \mathcal{R}} X_{i,j}
+\end{equation}
+
+\textbf{T-Max-Avg} uses threshold-based switching:
+\begin{equation}
+Y = \begin{cases}
+\max(X) & \text{if } \max(X) \geq T \\
+\frac{1}{K}\sum_{k=1}^{K} \text{TopK}(X)_k & \text{otherwise}
+\end{cases}
+\end{equation}
+
+\subsection{Differentiable Methods}
+
+\textbf{Soft T-Max-Avg} enables gradient flow through the threshold:
+\begin{equation}
+\alpha = \sigma\left(\frac{\max(X) - T}{\tau}\right), \quad
+Y = \alpha \cdot \max(X) + (1-\alpha) \cdot \bar{X}_K
+\end{equation}
+where $\sigma$ is sigmoid, $\tau$ is temperature, and $\bar{X}_K$ is the top-K average.
+
+\textbf{Channel-Adaptive} learns per-channel blend parameters $\lambda_c \in [0,1]$:
+\begin{equation}
+Y_c = \lambda_c \cdot \text{Max}(X_c) + (1-\lambda_c) \cdot \text{Avg}(X_c)
+\end{equation}
+
+\textbf{Learnable T} makes threshold $T$ a learnable parameter.
+
+\textbf{Gated} uses spatial attention gates $G \in [0,1]$ from a $1{\times}1$ convolution.
+
+\subsection{Novel Methods}
+
+\textbf{Attention-Weighted Pooling} (Novel). Not all pixels within a pooling window are equally important. We use lightweight self-attention:
+\begin{equation}
+A = \sigma(\text{Conv}(\text{ReLU}(\text{Conv}(X))))
+\end{equation}
+\begin{equation}
+Y = \frac{\text{AvgPool}(X \odot A)}{\text{AvgPool}(A) + \epsilon}
+\end{equation}
+
+\textbf{Stochastic Mix Pooling} (Novel). During training, blend ratios are sampled:
+\begin{equation}
+\lambda \sim \text{Beta}(\alpha, \beta) \text{ (train)}, \quad \lambda = \sigma(\theta) \text{ (test)}
+\end{equation}
+\begin{equation}
+Y = \lambda \cdot \text{Max}(X) + (1-\lambda) \cdot \text{Avg}(X)
+\end{equation}
+
+% ============================================================================
+% EXPERIMENTAL SETUP
+% ============================================================================
+\section{Experimental Setup}
+
+\subsection{Datasets}
+
+\begin{itemize}
+    \item \textbf{CIFAR-100}~\cite{krizhevsky2009learning}: 60K images, 32$\times$32, 100 classes
+    \item \textbf{Tiny ImageNet}: 120K images, 64$\times$64, 200 classes
+\end{itemize}
+
+\subsection{Architectures}
+
+\begin{itemize}
+    \item \textbf{VGG16}~\cite{simonyan2014very}: Pooling-heavy (5 pool layers)
+    \item \textbf{ResNet18}~\cite{he2016deep}: Skip connections, minimal pooling
+\end{itemize}
+
+\subsection{Training Configuration}
+
+SGD with momentum 0.9, weight decay $5{\times}10^{-4}$, cosine LR schedule from 0.1, 200 epochs, batch size 128, standard augmentation, mixed precision (AMP), 3 runs per configuration. All experiments on NVIDIA H100 GPUs.
+
+% ============================================================================
+% EVALUATION
+% ============================================================================
+\section{Evaluation}
+
+\subsection{Main Results}
+
+Figure~\ref{fig:main} and Table~\ref{tab:main} present our primary findings on VGG16.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/main_comparison.png}
+    \caption{VGG16 performance across all 8 pooling methods on CIFAR-100 and Tiny ImageNet. Stochastic Mix achieves the best results on both datasets.}
+    \label{fig:main}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{VGG16 Results (Top-1 Accuracy \%). Best in \textbf{bold}.}
+\label{tab:main}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{CIFAR-100} & $\Delta$ & \textbf{Tiny} & $\Delta$ \\
+\midrule
+Baseline & 72.70 & -- & 59.51 & -- \\
+T-Max-Avg & 72.82 & +0.12 & 59.32 & -0.19 \\
+Soft T-Max-Avg & 73.38 & +0.68 & 59.81 & +0.30 \\
+Channel Adaptive & 73.74 & +1.04 & 59.56 & +0.05 \\
+Learnable T & 73.11 & +0.41 & 60.94 & +1.43 \\
+Gated & 73.38 & +0.68 & 61.00 & +1.49 \\
+\rowcolor{lightgreen}
+Attention-Wtd & 73.74 & +1.04 & 61.38 & +1.87 \\
+\rowcolor{lightgreen}
+\textbf{Stochastic Mix} & \textbf{74.11} & \textbf{+1.41} & \textbf{61.54} & \textbf{+2.03} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key findings:}
+\begin{enumerate}
+    \item \textbf{Stochastic Mix} achieves best results: +1.41\% (CIFAR-100), +2.03\% (Tiny ImageNet).
+    \item All adaptive methods improve over baseline on CIFAR-100.
+    \item Improvements are larger on Tiny ImageNet, suggesting adaptive pooling benefits more complex tasks.
+\end{enumerate}
+
+\subsection{Architecture Comparison}
+
+Figure~\ref{fig:arch} contrasts VGG16 and ResNet18 sensitivity.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/architecture_comparison.png}
+    \caption{Architecture sensitivity to pooling. VGG16 benefits significantly from adaptive pooling; ResNet18 shows neutral response due to skip connections.}
+    \label{fig:arch}
+\end{figure}
+
+ResNet18 shows \textbf{neutral sensitivity}---all methods achieve $\sim$63\% on CIFAR-100. This confirms that skip connections already solve gradient flow issues, making ResNets robust to pooling changes.
+
+\subsection{Ablation Study}
+
+Figure~\ref{fig:ablation} shows the T-Max-Avg hyperparameter sensitivity.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/ablation_heatmap.png}
+    \caption{Ablation study heatmap for K (top-K) and T (threshold) parameters. Best configuration: K=4, T=0.3.}
+    \label{fig:ablation}
+\end{figure}
+
+Lower threshold ($T{=}0.3$) performs best, suggesting more frequent averaging is beneficial. Smaller K values (2--4) outperform larger ones.
+
+\subsection{Learning Dynamics}
+
+Figure~\ref{fig:curves} shows training progression.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/learning_curves.png}
+    \caption{Learning curves for VGG16 on CIFAR-100. Adaptive methods achieve higher final accuracy while maintaining stable training.}
+    \label{fig:curves}
+\end{figure}
+
+Adaptive methods show similar early training but achieve higher peaks in final epochs, indicating better generalization.
+
+\subsection{Computational Overhead}
+
+Figure~\ref{fig:overhead} analyzes efficiency.
+
+\begin{figure}[t]
+\centering
+    \includegraphics[width=\linewidth]{figures/overhead.png}
+    \caption{Computational overhead. All methods add $<$8\% training time. Stochastic Mix is particularly efficient with minimal extra parameters.}
+    \label{fig:overhead}
+\end{figure}
+
+All methods add negligible overhead ($<$8\% time). Stochastic Mix adds only 5 parameters per layer with 1\% overhead---excellent efficiency for +1.41\% gain.
+
+% ============================================================================
+% DISCUSSION
+% ============================================================================
+\section{Discussion}
+
+\subsection{Why Architecture Matters}
+
+VGG16, with 5 pooling layers in a feed-forward topology, shows significant sensitivity---each pooling operation is an information bottleneck. ResNet18's skip connections create alternative gradient pathways that bypass pooling, making it robust to pooling changes.
+
+\subsection{Why Stochastic Mix Works Best}
+
+\begin{enumerate}
+    \item \textbf{Regularization:} Random blend ratios during training act as feature-level data augmentation.
+    \item \textbf{Exploration:} Beta distribution sampling explores the blend space, finding robust configurations.
+\end{enumerate}
+
+\subsection{Limitations}
+
+We evaluated only image classification; other tasks may show different patterns. Modern architectures (EfficientNet, ConvNeXt) deserve investigation.
+
+% ============================================================================
+% CONCLUSION
+% ============================================================================
+\section{Conclusion}
+
+This project demonstrates that adaptive pooling can meaningfully improve CNN performance on pooling-heavy architectures. Our key findings:
+
+\begin{enumerate}
+    \item \textbf{Stochastic Mix Pooling} achieves +1.41\% (CIFAR-100) and +2.03\% (Tiny ImageNet) improvement.
+    \item \textbf{Architecture determines sensitivity:} VGG benefits; ResNets are robust.
+    \item \textbf{Higher resolution amplifies benefits.}
+\end{enumerate}
+
+We recommend \textbf{Stochastic Mix Pooling} as a drop-in replacement for Max Pooling in pooling-heavy architectures.
+
+% ============================================================================
+% REPRODUCIBILITY
+% ============================================================================
+\section*{Reproducibility Statement}
+
+We provide a complete reproducibility package:
+\begin{itemize}
+    \item \texttt{reproduce\_results.sh}: One-click execution script
+    \item \texttt{reproduce.py}: All pooling implementations
+    \item \texttt{run\_*.slurm}: SLURM cluster scripts
+    \item \texttt{requirements.txt}: Pinned dependencies
+\end{itemize}
+
+% ============================================================================
+% REFERENCES
+% ============================================================================
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
