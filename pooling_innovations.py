@@ -371,10 +371,19 @@ class StochasticMixPool2d(nn.Module):
     """
     Stochastic Mix Pooling - Randomly blends max and avg during training.
     
-    During training: randomly samples blend ratio from Beta distribution
-    During inference: uses learned optimal blend ratio
+    During training: samples blend ratio λ ~ Beta(α, β) for regularization,
+                     but uses Straight-Through Estimator so gradients flow 
+                     to the learned blend parameter.
+    During inference: uses learned optimal blend ratio σ(θ)
     
-    This adds regularization and helps find robust pooling strategies.
+    Key insight: Random sampling acts as regularization (explores blend space),
+    while STE ensures the learned parameter converges to the optimal blend.
+    
+    Args:
+        kernel_size: Pooling window size
+        stride: Pooling stride (default: kernel_size)
+        alpha: Beta distribution α parameter (higher = more samples near 1)
+        beta: Beta distribution β parameter (higher = more samples near 0)
     """
     def __init__(self, kernel_size=2, stride=None, alpha=2.0, beta=2.0):
         super().__init__()
@@ -382,25 +391,33 @@ class StochasticMixPool2d(nn.Module):
         self.stride = stride or kernel_size
         self.alpha = alpha  # Beta distribution parameter
         self.beta = beta
-        # Learned blend ratio for inference
-        self.blend = nn.Parameter(torch.tensor(0.5))
+        # Learned blend ratio (raw logit, will use sigmoid to get [0,1])
+        self.blend = nn.Parameter(torch.tensor(0.0))  # sigmoid(0) = 0.5
         
     def forward(self, x):
         max_pool = F.max_pool2d(x, kernel_size=self.kernel_size, stride=self.stride)
         avg_pool = F.avg_pool2d(x, kernel_size=self.kernel_size, stride=self.stride)
         
+        # Learned mean blend ratio (always in computation graph)
+        blend_mean = torch.sigmoid(self.blend)
+        
         if self.training:
-            # Sample random blend ratio from Beta distribution
-            blend_ratio = torch.distributions.Beta(self.alpha, self.beta).sample()
-            blend_ratio = blend_ratio.to(x.device)
+            # Sample from Beta for stochastic regularization
+            sample = torch.distributions.Beta(self.alpha, self.beta).sample()
+            sample = sample.to(x.device)
+            
+            # Straight-Through Estimator: forward uses sample, backward uses blend_mean
+            # This ensures self.blend receives gradients during training
+            blend_ratio = sample.detach() + blend_mean - blend_mean.detach()
         else:
             # Use learned blend ratio at inference
-            blend_ratio = torch.sigmoid(self.blend)
+            blend_ratio = blend_mean
         
         return blend_ratio * max_pool + (1 - blend_ratio) * avg_pool
     
     def extra_repr(self):
-        return f'kernel_size={self.kernel_size}, stride={self.stride}, blend={torch.sigmoid(self.blend).item():.3f}'
+        learned = torch.sigmoid(self.blend).item()
+        return f'kernel_size={self.kernel_size}, stride={self.stride}, learned_blend={learned:.3f}'
 
 
 # =============================================================================
@@ -510,18 +527,51 @@ def test_pooling_layers():
         f"Shape mismatch: {out4.shape}"
     print(f"   Input: {x.shape} -> Output: {out4.shape}")
     
+    # Test AttentionWeightedPool2d
+    print("\n5. AttentionWeightedPool2d")
+    pool5 = AttentionWeightedPool2d(kernel_size=2, num_channels=channels)
+    out5 = pool5(x)
+    assert out5.shape == (batch_size, channels, expected_h, expected_w), \
+        f"Shape mismatch: {out5.shape}"
+    print(f"   Input: {x.shape} -> Output: {out5.shape}")
+    
+    # Test StochasticMixPool2d
+    print("\n6. StochasticMixPool2d")
+    pool6 = StochasticMixPool2d(kernel_size=2)
+    pool6.train()  # Ensure training mode
+    out6 = pool6(x)
+    assert out6.shape == (batch_size, channels, expected_h, expected_w), \
+        f"Shape mismatch: {out6.shape}"
+    print(f"   Input: {x.shape} -> Output: {out6.shape}")
+    print(f"   Learned blend: {torch.sigmoid(pool6.blend).item():.4f}")
+    
     # Test gradient flow
-    print("\n5. Testing gradient flow...")
+    print("\n7. Testing gradient flow...")
     x_grad = torch.randn(batch_size, channels, height, width, requires_grad=True)
     
     for name, pool in [("Learnable", pool1), ("Soft", pool2), 
-                       ("ChannelAdaptive", pool3), ("Gated", pool4)]:
+                       ("ChannelAdaptive", pool3), ("Gated", pool4),
+                       ("Attention", pool5), ("StochasticMix", pool6)]:
+        pool.train()  # Ensure training mode for StochasticMix
         out = pool(x_grad)
         loss = out.sum()
         loss.backward(retain_graph=True)
         assert x_grad.grad is not None, f"{name}: No gradient!"
         print(f"   {name}: Gradient OK (mean abs: {x_grad.grad.abs().mean():.6f})")
         x_grad.grad.zero_()
+    
+    # CRITICAL: Verify StochasticMixPool2d.blend receives gradients (STE test)
+    print("\n8. Verifying StochasticMixPool2d learns (STE sanity check)...")
+    pool_ste = StochasticMixPool2d(kernel_size=2)
+    pool_ste.train()
+    x_ste = torch.randn(batch_size, channels, height, width)
+    out_ste = pool_ste(x_ste)
+    loss_ste = out_ste.sum()
+    loss_ste.backward()
+    
+    assert pool_ste.blend.grad is not None, "CRITICAL BUG: blend.grad is None!"
+    assert pool_ste.blend.grad.abs().item() > 0, "CRITICAL BUG: blend.grad is zero!"
+    print(f"   blend.grad = {pool_ste.blend.grad.item():.6f} ✓ (parameter IS learning)")
     
     print("\n✓ All tests passed!")
     return True
